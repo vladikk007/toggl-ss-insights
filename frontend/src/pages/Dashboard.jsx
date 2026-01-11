@@ -50,6 +50,14 @@ const parseDate = (dateStr) => {
   return new Date(year, month - 1, day);
 };
 
+// Helper to get start of week for date
+const getStartOfWeek = (date) => {
+  const d = new Date(date);
+  const day = d.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
+  return new Date(d.setDate(diff));
+}
+
 // Helper to get start/end dates for a range
 const getRangeDates = (range, referenceDate = new Date()) => {
   const ref = new Date(referenceDate);
@@ -58,7 +66,7 @@ const getRangeDates = (range, referenceDate = new Date()) => {
   switch (range) {
     case 'week':
       start = new Date(ref);
-      start.setDate(ref.getDate() - ref.getDay());
+      start.setDate(getStartOfWeek(start).getDate());
       end = new Date(start);
       end.setDate(start.getDate() + 6);
       break;
@@ -404,40 +412,78 @@ function Dashboard({ onLogout }) {
 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Client Allocation Pie Chart */}
+              
+              {/* Client Table */}
               <div className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-lg font-semibold mb-4">Time by Client</h2>
-                {clientData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={clientData}
-                        dataKey="totalHours"
-                        nameKey="clientName"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        label={({ clientName, percent }) =>
-                          `${clientName} (${(percent * 100).toFixed(0)}%)`
-                        }
-                      >
-                        {clientData.map((_, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
-                          />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value) => [`${value} hours`, 'Time']}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-64 flex items-center justify-center text-gray-500">
-                    No data available
-                  </div>
-                )}
+                <h2 className="text-lg font-semibold mb-4">Hours by Client</h2>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Client
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Hours
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Limit
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Fulfillment
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          % of Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {clientData.map((client, index) => {
+                        const totalHours = clientData.reduce(
+                          (sum, c) => sum + c.totalHours,
+                          0
+                        );
+                        const percentage =
+                          totalHours > 0
+                            ? ((client.totalHours / totalHours) * 100).toFixed(1)
+                            : 0;
+                        const limit = clientLimits[client.clientName] || 0;
+                        const fulfillment = limit > 0
+                          ? ((client.totalHours / limit) * 100).toFixed(1)
+                          : null;
+                        const fulfillmentColor = fulfillment === null
+                          ? 'text-gray-400'
+                          : fulfillment >= 100
+                            ? 'text-green-600 font-semibold'
+                            : fulfillment >= 80
+                              ? 'text-brand font-medium'
+                              : fulfillment >= 50
+                                ? 'text-yellow-600'
+                                : 'text-red-500';
+
+                        return (
+                          <tr key={client.clientId || index}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {client.clientName}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                              {client.totalHours.toFixed(1)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                              {limit > 0 ? limit : '-'}
+                            </td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right ${fulfillmentColor}`}>
+                              {fulfillment !== null ? `${fulfillment}%` : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+                              {percentage}%
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Client Hours Bar Chart */}
@@ -576,79 +622,42 @@ function Dashboard({ onLogout }) {
                 </div>
               </div>
 
-              {/* Client Table */}
+              {/* Client Allocation Pie Chart */}
               <div className="bg-white p-6 rounded-lg shadow">
-                <h2 className="text-lg font-semibold mb-4">Hours by Client</h2>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Client
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Hours
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Limit
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Fulfillment
-                        </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          % of Total
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {clientData.map((client, index) => {
-                        const totalHours = clientData.reduce(
-                          (sum, c) => sum + c.totalHours,
-                          0
-                        );
-                        const percentage =
-                          totalHours > 0
-                            ? ((client.totalHours / totalHours) * 100).toFixed(1)
-                            : 0;
-                        const limit = clientLimits[client.clientName] || 0;
-                        const fulfillment = limit > 0
-                          ? ((client.totalHours / limit) * 100).toFixed(1)
-                          : null;
-                        const fulfillmentColor = fulfillment === null
-                          ? 'text-gray-400'
-                          : fulfillment >= 100
-                            ? 'text-green-600 font-semibold'
-                            : fulfillment >= 80
-                              ? 'text-brand font-medium'
-                              : fulfillment >= 50
-                                ? 'text-yellow-600'
-                                : 'text-red-500';
-
-                        return (
-                          <tr key={client.clientId || index}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {client.clientName}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                              {client.totalHours.toFixed(1)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                              {limit > 0 ? limit : '-'}
-                            </td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right ${fulfillmentColor}`}>
-                              {fulfillment !== null ? `${fulfillment}%` : '-'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                              {percentage}%
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <h2 className="text-lg font-semibold mb-4">Time by Client</h2>
+                {clientData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={clientData}
+                        dataKey="totalHours"
+                        nameKey="clientName"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        label={({ clientName, percent }) =>
+                          `${clientName} (${(percent * 100).toFixed(0)}%)`
+                        }
+                      >
+                        {clientData.map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => [`${value} hours`, 'Time']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-64 flex items-center justify-center text-gray-500">
+                    No data available
+                  </div>
+                )}
               </div>
-
+              
               {/* User Pie Chart */}
               <div className="bg-white p-6 rounded-lg shadow">
                 <h2 className="text-lg font-semibold mb-4">Time by User</h2>
