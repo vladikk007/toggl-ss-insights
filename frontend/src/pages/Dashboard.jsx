@@ -243,7 +243,7 @@ function Dashboard({ onLogout }) {
                 alt="SybriSoft Logo"
                 className="h-8 bg-gray-800 p-1 rounded"
               />
-              <h1 className="text-xl font-bold text-gray-800">Toggl Insights</h1>
+              <h1 className="text-xl font-bold text-gray-800">Toggl SybriSoft Insights</h1>
             </div>
             <button
               onClick={onLogout}
@@ -306,6 +306,8 @@ function Dashboard({ onLogout }) {
                 onChange={handleStartDateChange}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
               />
+            </div>
+            <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600">To:</label>
               <input
                 type="date"

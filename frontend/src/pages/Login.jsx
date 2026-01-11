@@ -31,7 +31,7 @@ function Login({ onLogin }) {
             className="h-12 mb-4 bg-gray-800 p-2 rounded"
           />
           <h1 className="text-2xl font-bold text-center text-gray-800">
-            Toggl Insights
+            Toggl SybriSoft Insights
           </h1>
         </div>
 
