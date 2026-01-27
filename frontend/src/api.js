@@ -33,7 +33,8 @@ export const analytics = {
   getByProject: (params) => api.get('/analytics/by-project', { params }),
   getByUser: (params) => api.get('/analytics/by-user', { params }),
   getSummary: (params) => api.get('/analytics/summary', { params }),
-  getClients: () => api.get('/analytics/clients')
+  getClients: () => api.get('/analytics/clients'),
+  getProjectsWithUsers: (params) => api.get('/analytics/projects-with-users', { params })
 };
 
 export default api;

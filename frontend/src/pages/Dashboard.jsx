@@ -162,6 +162,7 @@ function Dashboard({ onLogout }) {
   const [clientData, setClientData] = useState([]);
   const [projectData, setProjectData] = useState([]);
   const [userData, setUserData] = useState([]);
+  const [projectsWithUsers, setProjectsWithUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [clientLimits, setClientLimits] = useState(() => {
@@ -196,17 +197,19 @@ function Dashboard({ onLogout }) {
     const params = { startDate, endDate };
 
     try {
-      const [summaryRes, clientRes, projectRes, userRes] = await Promise.all([
+      const [summaryRes, clientRes, projectRes, userRes, projectsUsersRes] = await Promise.all([
         analytics.getSummary(params),
         analytics.getByClient(params),
         analytics.getByProject(params),
-        analytics.getByUser(params)
+        analytics.getByUser(params),
+        analytics.getProjectsWithUsers(params)
       ]);
 
       setSummary(summaryRes.data);
       setClientData(clientRes.data);
       setProjectData(projectRes.data);
       setUserData(userRes.data);
+      setProjectsWithUsers(projectsUsersRes.data);
     } catch (err) {
       setError('Failed to load data');
       console.error(err);
@@ -552,6 +555,21 @@ function Dashboard({ onLogout }) {
                 </div>
               </div>
 
+              {/* Projects with Users Table - Full Width */}
+              <div className="glass-card p-6 lg:col-span-2 opacity-0 animate-fade-in-up stagger-8">
+                <h2 className="text-base font-semibold text-slate-200 mb-4 flex items-center gap-2">
+                  <span className="w-1 h-4 bg-teal-400 rounded-full" />
+                  Projects & Team Members
+                </h2>
+                <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                  {projectsWithUsers.length > 0 ? (
+                    <ProjectUsersTable projects={projectsWithUsers} />
+                  ) : (
+                    <EmptyState />
+                  )}
+                </div>
+              </div>
+
               {/* Project Chart - Full Width */}
               <div className="glass-card p-6 lg:col-span-2 opacity-0 animate-fade-in-up stagger-7">
                 <h2 className="text-base font-semibold text-slate-200 mb-4 flex items-center gap-2">
@@ -748,6 +766,99 @@ function Dashboard({ onLogout }) {
         </div>
       </footer>
     </div>
+  );
+}
+
+// Projects with Users Table Component
+function ProjectUsersTable({ projects }) {
+  // Extract all unique users and assign consistent colors
+  const allUsers = new Map();
+  projects.forEach(project => {
+    project.users.forEach(user => {
+      if (!allUsers.has(user.userId)) {
+        allUsers.set(user.userId, {
+          userId: user.userId,
+          userName: user.userName,
+          colorIndex: allUsers.size,
+          totalHours: 0
+        });
+      }
+      // Accumulate total hours for each user
+      allUsers.get(user.userId).totalHours += user.hours;
+    });
+  });
+
+  const userColumns = Array.from(allUsers.values());
+
+  // Calculate grand total
+  const grandTotal = projects.reduce((sum, p) => sum + p.totalHours, 0);
+
+  // Create a lookup for user hours per project
+  const getUserHours = (project, userId) => {
+    const user = project.users.find(u => u.userId === userId);
+    return user ? user.hours : null;
+  };
+
+  return (
+    <table className="data-table">
+      <thead className="sticky top-0 z-10">
+        <tr>
+          <th>Client</th>
+          <th>Project</th>
+          <th className="text-right">Total</th>
+          {userColumns.map((user) => (
+            <th
+              key={user.userId}
+              className="text-center min-w-[80px]"
+              style={{ color: COLORS[user.colorIndex % COLORS.length] }}
+            >
+              {user.userName}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {projects.map((project, index) => (
+          <tr key={project.projectId || index}>
+            <td>
+              <span className="text-slate-400">{project.clientName}</span>
+            </td>
+            <td className="font-medium">{project.projectName}</td>
+            <td className="text-right">{project.totalHours.toFixed(1)}</td>
+            {userColumns.map((user) => {
+              const hours = getUserHours(project, user.userId);
+              return (
+                <td
+                  key={user.userId}
+                  className="text-center"
+                  style={{
+                    color: hours ? COLORS[user.colorIndex % COLORS.length] : undefined,
+                    backgroundColor: hours ? `${COLORS[user.colorIndex % COLORS.length]}10` : undefined
+                  }}
+                >
+                  {hours ? hours.toFixed(1) : '—'}
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr className="border-t-2 border-white/10 bg-white/5">
+          <td colSpan={2} className="font-semibold text-slate-200">Total</td>
+          <td className="text-right font-semibold text-slate-200">{grandTotal.toFixed(1)}</td>
+          {userColumns.map((user) => (
+            <td
+              key={user.userId}
+              className="text-center font-semibold"
+              style={{ color: COLORS[user.colorIndex % COLORS.length] }}
+            >
+              {user.totalHours.toFixed(1)}
+            </td>
+          ))}
+        </tr>
+      </tfoot>
+    </table>
   );
 }
 

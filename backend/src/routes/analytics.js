@@ -155,6 +155,71 @@ router.get('/summary', async (req, res) => {
   }
 });
 
+// Get projects with users who worked on them
+router.get('/projects-with-users', async (req, res) => {
+  try {
+    const { range, startDate, endDate } = req.query;
+    const { start, end } = getDateFilter(range, startDate, endDate);
+
+    const result = await db.query(`
+      SELECT
+        COALESCE(p.name, 'No Project') as project_name,
+        p.t_project_id as project_id,
+        COALESCE(c.name, 'No Client') as client_name,
+        c.t_client_id as client_id,
+        u.name as user_name,
+        u.t_user_id as user_id,
+        SUM(te.duration_seconds) as total_seconds,
+        COUNT(te.t_time_entry_id) as entry_count
+      FROM t_time_entry te
+      LEFT JOIN t_project p ON te.t_project_id = p.t_project_id
+      LEFT JOIN t_client c ON p.t_client_id = c.t_client_id
+      JOIN t_user u ON te.t_user_id = u.t_user_id
+      WHERE te.start >= $1 AND te.start < $2
+      GROUP BY p.t_project_id, p.name, c.t_client_id, c.name, u.t_user_id, u.name
+      ORDER BY c.name, p.name, total_seconds DESC
+    `, [start, end]);
+
+    // Group by project
+    const projectsMap = new Map();
+
+    result.rows.forEach(row => {
+      const projectKey = row.project_id || 'no-project';
+
+      if (!projectsMap.has(projectKey)) {
+        projectsMap.set(projectKey, {
+          projectName: row.project_name,
+          projectId: row.project_id,
+          clientName: row.client_name,
+          clientId: row.client_id,
+          totalHours: 0,
+          users: []
+        });
+      }
+
+      const project = projectsMap.get(projectKey);
+      const userHours = Math.round(row.total_seconds / 3600 * 100) / 100;
+      project.totalHours += userHours;
+      project.users.push({
+        userName: row.user_name,
+        userId: row.user_id,
+        hours: userHours,
+        entryCount: parseInt(row.entry_count)
+      });
+    });
+
+    // Convert to array and sort by total hours
+    const data = Array.from(projectsMap.values())
+      .map(p => ({ ...p, totalHours: Math.round(p.totalHours * 100) / 100 }))
+      .sort((a, b) => b.totalHours - a.totalHours);
+
+    res.json(data);
+  } catch (err) {
+    console.error('Error fetching projects with users:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
 // Get list of clients for filtering
 router.get('/clients', async (req, res) => {
   try {

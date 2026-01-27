@@ -460,3 +460,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .data-table tbody tr.row-fulfillment-80:hover {
   background: rgba(251, 191, 36, 0.22);
 }
+
+/* Sticky header for scrollable tables */
+.data-table thead.sticky th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-deep);
+  z-index: 10;
+  box-shadow: 0 1px 0 var(--border-subtle);
+}
